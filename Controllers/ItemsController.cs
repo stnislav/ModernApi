@@ -15,7 +15,8 @@ public class ItemsController : ControllerBase
     {
         this.itemService = itemService;
     }
-    // GET api/items
+    
+    /// <summary>Returns all items.</summary>
     [HttpGet]
     public IActionResult GetItems()
     {
@@ -25,6 +26,7 @@ public class ItemsController : ControllerBase
     }
 
     // GET api/items/{id}
+    /// <summary>Returns an item by its ID.</summary>
     [HttpGet("{id}")]
     public IActionResult GetItem(int id)
     {
@@ -33,6 +35,7 @@ public class ItemsController : ControllerBase
     }
 
     // POST api/items
+    /// <summary>Creates a new item.</summary>
     [HttpPost]
     public IActionResult CreateItem(CreateItemRequest newItem)
     {
@@ -40,6 +43,7 @@ public class ItemsController : ControllerBase
         return CreatedAtAction(nameof(GetItem), new { id = item.Id }, item);
     }
 
+    /// <summary>Updates an existing item.</summary>
     [HttpPut("{id}")]
     public IActionResult UpdateItem(UpdateItemRequest request)
     {
