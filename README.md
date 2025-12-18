@@ -34,3 +34,9 @@ docker run -e ASPNETCORE_ENVIRONMENT=Development -p 8081:8080 modernapi
 
 Note: If port 8081 is already in use, map another host port:
 docker run -e ASPNETCORE_ENVIRONMENT=Development -p 8082:8080 modernapi
+
+## Run with Docker Compose (API + PostgreSQL)
+
+Start:
+```bash
+docker compose up --build
