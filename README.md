@@ -22,3 +22,15 @@ Swagger: https://localhost:<port>/swagger
 ## Notes
 - In-memory storage (Week 1)
 - Next: Docker, EF Core, Kubernetes
+
+## Run with Docker
+
+The API can be built and run using Docker without installing .NET locally.
+
+### Build image
+```bash
+docker build -t modernapi .
+docker run -e ASPNETCORE_ENVIRONMENT=Development -p 8081:8080 modernapi
+
+Note: If port 8081 is already in use, map another host port:
+docker run -e ASPNETCORE_ENVIRONMENT=Development -p 8082:8080 modernapi
