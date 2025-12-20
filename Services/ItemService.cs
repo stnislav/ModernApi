@@ -2,43 +2,66 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using ModernApi.Models;
 using ModernApi.Services;
 using ModernApi.Exceptions;
+using Microsoft.EntityFrameworkCore;
+using ModernApi.Data;
 
 namespace ModernApi.Services;
 public class ItemService : IItemService
 {
-    private readonly List<Item> _items = new() { 
-        new Item { Id = 1, Name = "Item1" }, 
-        new Item { Id = 2, Name = "Item2" }, 
-        new Item { Id = 3, Name = "Item3" } };
-
-    public IEnumerable<Item> GetAllItems()
+    private readonly AppDbContext _db;
+    public ItemService(AppDbContext context)
     {
-        Console.WriteLine("Fetching all items.");
-        return _items;
+        _db = context;
     }
 
-    public Item GetItemById(int id)
+    public async Task<IEnumerable<Item>> GetAllItemsAsync()
     {
-        if (id < 1 || id > _items.Count)
+        return await _db.Items.AsNoTracking().OrderBy(x => x.Id).ToListAsync();
+    }
+
+    public async Task<Item> GetItemByIdAsync(int id)
+    {
+        var item = await _db.Items.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+
+
+        if (item == null)
         {
             throw new NotFoundException("Item not found.");
-            // throw new ArgumentOutOfRangeException(nameof(id), "Item not found.");
         }
 
-        return _items[id - 1];
-    }
-
-    public Item AddItem(string newItem)
-    {
-        var item = new Item { Id = _items.Count + 1, Name = newItem };
-        _items.Add(item);
         return item;
     }
 
-    public Item UpdateItem(int id, string name)
+    public async Task<Item> AddItemAsync(string newItem)
     {
-        var item = GetItemById(id);
+        var item = new Item { Name = newItem };
+        _db.Items.Add(item);
+        await _db.SaveChangesAsync();
+        return item;
+    }
+
+    public async Task<Item> UpdateItemAsync(int id, string name)
+    {
+        var item = _db.Items.FirstOrDefault(x => x.Id == id);
+        if(item == null)
+        {
+            throw new NotFoundException("Item not found.");
+        }
+
         item.Name = name;
+        await _db.SaveChangesAsync();
         return item;
+    }
+
+    public async Task DeleteItemAsync(int id)
+    {
+        var item = _db.Items.FirstOrDefault(x => x.Id == id);
+        if (item == null)
+        {
+            throw new NotFoundException("Item not found.");
+        }
+
+        _db.Items.Remove(item);
+        await _db.SaveChangesAsync();
     }
 }
