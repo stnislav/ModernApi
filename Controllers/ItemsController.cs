@@ -9,18 +9,18 @@ namespace ModernApi.Controllers;
 [Route("api/items")]
 public class ItemsController : ControllerBase
 {
-    private readonly IItemService itemService;
+    private readonly IItemService _itemService;
 
     public ItemsController(IItemService itemService)
     {
-        this.itemService = itemService;
+        _itemService = itemService;
     }
     
     /// <summary>Returns all items.</summary>
     [HttpGet]
-    public IActionResult GetItems()
+    public async Task<IActionResult> GetItems()
     {
-        var items = itemService.GetAllItems();
+        var items = await _itemService.GetAllItemsAsync();
         var response = items.Select(x => new ItemResponse(x.Id, x.Name));
         return Ok(response);
     }
@@ -28,26 +28,34 @@ public class ItemsController : ControllerBase
     // GET api/items/{id}
     /// <summary>Returns an item by its ID.</summary>
     [HttpGet("{id}")]
-    public IActionResult GetItem(int id)
+    public async Task<IActionResult> GetItem(int id)
     {
-        var item = itemService.GetItemById(id);
+        var item = await _itemService.GetItemByIdAsync(id);
         return Ok(new ItemResponse(item.Id, item.Name));
     }
 
     // POST api/items
     /// <summary>Creates a new item.</summary>
     [HttpPost]
-    public IActionResult CreateItem(CreateItemRequest newItem)
+    public async Task<IActionResult> CreateItem(CreateItemRequest newItem)
     {
-        var item = itemService.AddItem(newItem.Name);
-        return CreatedAtAction(nameof(GetItem), new { id = item.Id }, item);
+        var item = await _itemService.AddItemAsync(newItem.Name);
+        return CreatedAtAction(nameof(GetItem), new { id = item.Id }, new ItemResponse(item.Id, item.Name));
     }
 
     /// <summary>Updates an existing item.</summary>
     [HttpPut("{id}")]
-    public IActionResult UpdateItem(UpdateItemRequest request)
+    public async Task<IActionResult> UpdateItem(UpdateItemRequest request)
     {
-        var item = itemService.UpdateItem(request.Id, request.Name);
-        return Ok(item);
+        var item = await _itemService.UpdateItemAsync(request.Id, request.Name);
+       return Ok(new ItemResponse(item.Id, item.Name));
+    }
+
+    /// <summary>Deletes an item by its ID.</summary>
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteItem(int id)
+    {
+        await _itemService.DeleteItemAsync(id);
+        return Ok();
     }
 }
