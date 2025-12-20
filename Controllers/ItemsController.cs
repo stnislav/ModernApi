@@ -18,11 +18,10 @@ public class ItemsController : ControllerBase
     
     /// <summary>Returns all items.</summary>
     [HttpGet]
-    public async Task<IActionResult> GetItems()
+    public async Task<IActionResult> GetItems([FromQuery] ItemsRequest request)
     {
-        var items = await _itemService.GetAllItemsAsync();
-        var response = items.Select(x => new ItemResponse(x.Id, x.Name));
-        return Ok(response);
+        var pagedDataResult =  await _itemService.GetItemsAsync(request.PageNumber, request.PageSize, request.Filter ?? string.Empty);
+        return Ok(pagedDataResult);
     }
 
     // GET api/items/{id}
@@ -31,6 +30,11 @@ public class ItemsController : ControllerBase
     public async Task<IActionResult> GetItem(int id)
     {
         var item = await _itemService.GetItemByIdAsync(id);
+        if(item == null)
+        {
+            return NotFound();
+        }
+
         return Ok(new ItemResponse(item.Id, item.Name));
     }
 
@@ -44,18 +48,24 @@ public class ItemsController : ControllerBase
     }
 
     /// <summary>Updates an existing item.</summary>
-    [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateItem(UpdateItemRequest request)
+    [HttpPut("{id:int}")]
+    public async Task<IActionResult> UpdateItem(int id, UpdateItemRequest request)
     {
-        var item = await _itemService.UpdateItemAsync(request.Id, request.Name);
+        var item = await _itemService.UpdateItemAsync(id, request.Name);
+        if(item == null)
+        {
+            return NotFound();
+        }
+        
        return Ok(new ItemResponse(item.Id, item.Name));
     }
 
     /// <summary>Deletes an item by its ID.</summary>
-    [HttpDelete("{id}")]
+    [HttpDelete("{id:int}")]
     public async Task<IActionResult> DeleteItem(int id)
     {
-        await _itemService.DeleteItemAsync(id);
-        return Ok();
+        var deleted = await _itemService.DeleteItemAsync(id);
+        if (!deleted) return NotFound();
+        return NoContent();
     }
 }

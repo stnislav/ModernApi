@@ -1,12 +1,13 @@
 using ModernApi.Models;
 using System.Threading.Tasks;
+using ModernApi.DTOs;
 
 namespace ModernApi.Services;
 public interface IItemService
 {
-    Task<IEnumerable<Item>> GetAllItemsAsync();
+    Task<PagedResult<ItemResponse>> GetItemsAsync(int page, int pageSize, string filter);
     Task<Item> GetItemByIdAsync(int id);
     Task<Item> AddItemAsync(string item);
     Task<Item> UpdateItemAsync(int id, string name);
-    Task DeleteItemAsync(int id);
+    Task<bool> DeleteItemAsync(int id);
 }
