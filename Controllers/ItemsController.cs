@@ -18,9 +18,9 @@ public class ItemsController : ControllerBase
     
     /// <summary>Returns all items.</summary>
     [HttpGet]
-    public async Task<IActionResult> GetItems([FromQuery] ItemsRequest request)
+    public async Task<IActionResult> GetItems([FromQuery] GetItemsRequest request)
     {
-        var pagedDataResult =  await _itemService.GetItemsAsync(request.PageNumber, request.PageSize, request.Filter ?? string.Empty);
+        var pagedDataResult =  await _itemService.GetItemsAsync(request.Page, request.PageSize, request.Search ?? string.Empty);
         return Ok(pagedDataResult);
     }
 
