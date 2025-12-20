@@ -14,6 +14,9 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
     
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<AppDbContext>();
+
 builder.Services.AddScoped<IItemService, ItemService>();
 
 builder.Services.AddSwaggerGen(options =>
@@ -36,6 +39,9 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.UseHttpsRedirection();
 app.MapControllers();
+
+app.MapHealthChecks("/health");
+app.MapHealthChecks("/health/ready");
 
 app.Run();
 
