@@ -1,6 +1,39 @@
 @ModernApi_HostAddress = http://localhost:5299
 
-GET {{ModernApi_HostAddress}}/weatherforecast/
+### Create
+POST {{ModernApi_HostAddress}}/api/items
+Content-Type: application/json
+
+{
+  "name": "Test item",
+  "price": 10
+}
+
+### List page 1
+GET {{ModernApi_HostAddress}}/api/items?page=1&pageSize=10
 Accept: application/json
 
-###
+### List with search
+GET {{ModernApi_HostAddress}}/api/items?page=1&pageSize=10&search=test
+Accept: application/json
+Accept: application/json
+
+### Get by id
+GET {{ModernApi_HostAddress}}/api/items/1
+Accept: application/json
+
+### Update
+PUT {{ModernApi_HostAddress}}/api/items/1
+Content-Type: application/json
+
+{
+  "name": "Updated name",
+  "price": 20
+}
+
+### Delete
+DELETE {{ModernApi_HostAddress}}/api/items/1
+
+### Get deleted (expect 404)
+GET {{ModernApi_HostAddress}}/api/items/1
+Accept: application/json
