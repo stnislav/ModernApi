@@ -25,13 +25,18 @@ public class ItemService : IItemService
         return _cache.GetOrCreate(ListVersionKey, entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(6);
+            entry.Size = 1;
             return 1;
         });
     }
     private void BumpListVersion()
     {
         var current = GetListVersion();
-        _cache.Set(ListVersionKey, current + 1);
+        _cache.Set(ListVersionKey, current + 1, new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(2),
+            Size = 1
+        });
     }
 
     public async Task<PagedResult<ItemResponse>> GetItemsAsync(int page, int pageSize, string filter)
@@ -68,20 +73,25 @@ public class ItemService : IItemService
 
         _cache.Set(cacheKey, result, new MemoryCacheEntryOptions
         {
-            AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(20)
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(20),
+            Size = 1
         });
 
         return result;
     }
 
-    public async Task<Item> GetItemByIdAsync(int id)
+    public async Task<ItemResponse> GetItemByIdAsync(int id)
     {
         var cacheKey = $"item:{id}";
 
-        if (_cache.TryGetValue<Item>(cacheKey, out var cached))
+        if (_cache.TryGetValue<ItemResponse>(cacheKey, out var cached))
             return cached;
 
-        var item = await _db.Items.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+        var item = await _db.Items
+        .AsNoTracking()
+        .Where(x => x.Id == id)
+        .Select(x => new ItemResponse(x.Id, x.Name))
+        .FirstOrDefaultAsync(); 
 
         if (item == null)
         {
@@ -98,7 +108,7 @@ public class ItemService : IItemService
         return item;
     }
 
-    public async Task<Item> AddItemAsync(string newItem)
+    public async Task<ItemResponse> AddItemAsync(string newItem)
     {
         var item = new Item { Name = newItem };
         _db.Items.Add(item);
@@ -106,10 +116,10 @@ public class ItemService : IItemService
         //invalidate cache
         BumpListVersion();
 
-        return item;
+        return new ItemResponse(item.Id, item.Name);
     }
 
-    public async Task<Item> UpdateItemAsync(int id, string name)
+    public async Task<ItemResponse> UpdateItemAsync(int id, string name)
     {
         var item = await _db.Items.FirstOrDefaultAsync(x => x.Id == id);
         if(item == null)
@@ -121,8 +131,8 @@ public class ItemService : IItemService
         await _db.SaveChangesAsync();
 
         InvalidateCache(id);
-        
-        return item;
+
+        return new ItemResponse(item.Id, item.Name);
     }
     
     public async Task<bool> DeleteItemAsync(int id)
