@@ -3,6 +3,9 @@ using ModernApi.Middleware;
 using ModernApi.Services;
 using Microsoft.EntityFrameworkCore;
 using ModernApi.Data;
+using ModernApi.Abstractions.Caching;
+using ModernApi.Infrastructure.Caching;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,7 +17,20 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-    
+
+//redis configuration    
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = builder.Configuration.GetConnectionString("RedisConnection");
+    options.InstanceName = "modernapi:";
+});
+
+builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
+    ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("RedisConnection")!));
+
+builder.Services.AddScoped<IAppCache, RedisAppCache>();
+builder.Services.AddScoped<IListVersionStore, RedisListVersionStore>();
+
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>();
 
