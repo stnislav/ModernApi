@@ -1,159 +1,139 @@
-using Microsoft.AspNetCore.Http.HttpResults;
 using ModernApi.Models;
-using ModernApi.Services;
 using ModernApi.Exceptions;
 using Microsoft.EntityFrameworkCore;
 using ModernApi.Data;
 using ModernApi.DTOs;
-using Microsoft.Extensions.Caching.Memory;
+using ModernApi.Abstractions.Caching;
 
 namespace ModernApi.Services;
+
 public class ItemService : IItemService
 {
     private readonly AppDbContext _db;
-    readonly IMemoryCache _cache;
-    private const string ListVersionKey = "items:list:version";
-
-    public ItemService(AppDbContext context, IMemoryCache cache)
+    private readonly IAppCache _cache;
+    private readonly IListVersionStore _listVersionStore;
+    
+    public ItemService(AppDbContext context, IAppCache cache, IListVersionStore listVersionStore)
     {
         _db = context;
         _cache = cache;
+        _listVersionStore = listVersionStore;
+    }
+    private async Task<long> GetListVersionAsync(CancellationToken ct)
+    {
+        return await _listVersionStore.GetAsync(ct);
     }
 
-    private int GetListVersion()
-    {
-        return _cache.GetOrCreate(ListVersionKey, entry =>
-        {
-            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(6);
-            entry.Size = 1;
-            return 1;
-        });
-    }
-    private void BumpListVersion()
-    {
-        var current = GetListVersion();
-        _cache.Set(ListVersionKey, current + 1, new MemoryCacheEntryOptions
-        {
-            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(2),
-            Size = 1
-        });
-    }
-
-    public async Task<PagedResult<ItemResponse>> GetItemsAsync(int page, int pageSize, string filter)
+    public async Task<PagedResult<ItemResponse>> GetItemsAsync(int page, int pageSize, string filter, CancellationToken ct)
     {
         // safety limits
         if (page < 1) page = 1;
         if (pageSize < 1) pageSize = 20;
         if (pageSize > 100) pageSize = 100;
 
-        var version = GetListVersion();
-        var cacheKey = $"items:list:v={version}:p={page}:ps={pageSize}:q={filter}";
+        var version = await GetListVersionAsync(ct);
+        
+        filter = (filter ?? string.Empty).Trim().ToLowerInvariant();
+        var cacheKey = $"modernapi:items:list:v={version}:p={page}:ps={pageSize}:q={filter}";
 
-        if (_cache.TryGetValue<PagedResult<ItemResponse>>(cacheKey, out var cached))
+        var cached = await _cache.GetAsync<PagedResult<ItemResponse>>(cacheKey, ct);
+        if (cached != null)
         {
             return cached;
         }
 
         var query = _db.Items.AsNoTracking();
 
+       
         if (!string.IsNullOrEmpty(filter))
         {
-            query = query.Where(x => x.Name.Contains(filter));
+            query = query.Where(x => EF.Functions.ILike(x.Name, $"%{filter}%"));
         }
 
-        var total = await query.CountAsync();
+        var total = await query.CountAsync(ct);
         var items = await query
                     .OrderBy(x => x.Id)                
                     .Skip((page - 1) * pageSize)
                     .Take(pageSize)
                     .Select(x => new ItemResponse(x.Id, x.Name))
-                    .ToListAsync();
+                    .ToListAsync(ct);
                     
         var result = new PagedResult<ItemResponse>(items, total, page, pageSize);
 
-        _cache.Set(cacheKey, result, new MemoryCacheEntryOptions
-        {
-            AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(20),
-            Size = 1
-        });
-
+        await _cache.SetAsync(cacheKey, result, TimeSpan.FromSeconds(120), ct);
         return result;
     }
 
-    public async Task<ItemResponse> GetItemByIdAsync(int id)
+    public async Task<ItemResponse> GetItemByIdAsync(int id, CancellationToken ct = default)
     {
         var cacheKey = $"item:{id}";
 
-        if (_cache.TryGetValue<ItemResponse>(cacheKey, out var cached))
+        var cached = await _cache.GetAsync<ItemResponse>(cacheKey, ct);
+        if (cached != null)
             return cached;
 
         var item = await _db.Items
         .AsNoTracking()
         .Where(x => x.Id == id)
         .Select(x => new ItemResponse(x.Id, x.Name))
-        .FirstOrDefaultAsync(); 
+        .FirstOrDefaultAsync(ct); 
 
         if (item == null)
         {
             throw new NotFoundException("Item not found.");
         }
 
-        _cache.Set(cacheKey, item, new MemoryCacheEntryOptions
-        {
-            AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60),
-            SlidingExpiration = TimeSpan.FromSeconds(30),
-            Size = 1
-        }); 
+        await _cache.SetAsync(cacheKey, item,TimeSpan.FromSeconds(60), ct); 
         
         return item;
     }
 
-    public async Task<ItemResponse> AddItemAsync(string newItem)
+    public async Task<ItemResponse> AddItemAsync(string newItem, CancellationToken ct = default)
     {
         var item = new Item { Name = newItem };
-        _db.Items.Add(item);
-        await _db.SaveChangesAsync();
+        await _db.Items.AddAsync(item, ct);
+        await _db.SaveChangesAsync(ct);
         //invalidate cache
-        BumpListVersion();
+        await _listVersionStore.BumpAsync(ct);
 
         return new ItemResponse(item.Id, item.Name);
     }
 
-    public async Task<ItemResponse> UpdateItemAsync(int id, string name)
+    public async Task<ItemResponse> UpdateItemAsync(int id, string name, CancellationToken ct = default)
     {
-        var item = await _db.Items.FirstOrDefaultAsync(x => x.Id == id);
+        var item = await _db.Items.FirstOrDefaultAsync(x => x.Id == id, ct);
         if(item == null)
         {
             throw new NotFoundException("Item not found.");
         }
 
         item.Name = name;
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(ct);
 
-        InvalidateCache(id);
+        await InvalidateCache(id, ct);
 
         return new ItemResponse(item.Id, item.Name);
     }
-    
-    public async Task<bool> DeleteItemAsync(int id)
+
+    public async Task<bool> DeleteItemAsync(int id, CancellationToken ct = default)
     {
-        var item = await _db.Items.FirstOrDefaultAsync(x => x.Id == id);
+        var item = await _db.Items.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (item == null)
         {
             return false;
         }
 
         _db.Items.Remove(item);
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(ct);
 
-        InvalidateCache(id);
+        await InvalidateCache(id, ct);
 
         return true;
     }
 
-    private void InvalidateCache(int id)
+    private async Task InvalidateCache(int id, CancellationToken ct = default)
     {
-         _cache.Remove($"item:{id}");
-        BumpListVersion();
+        await _cache.RemoveAsync($"item:{id}", ct);
+        await _listVersionStore.BumpAsync(ct);
     }
 }

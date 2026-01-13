@@ -7,3 +7,4 @@ appsettings.Development.json
 .env
 api-secret.yml
 db-secret.yml
+modern_api_architecture_overview.md
