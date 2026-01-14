@@ -4,7 +4,7 @@ Production-ready ASP.NET Core 10 Web API demonstrating clean architecture,
 DTOs, DI, validation and global exception handling.
 
 ## Tech stack
-- .NET 8 / ASP.NET Core
+- .NET 10 / ASP.NET Core
 - Swagger / OpenAPI
 - Custom exception middleware
 
