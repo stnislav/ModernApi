@@ -1,6 +1,6 @@
 # ModernApi
 
-Production-ready ASP.NET Core 8 Web API demonstrating clean architecture,
+Production-ready ASP.NET Core 10 Web API demonstrating clean architecture,
 DTOs, DI, validation and global exception handling.
 
 ## Tech stack
