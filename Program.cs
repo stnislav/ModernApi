@@ -9,6 +9,16 @@ using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("DevCors", p =>
+        p.WithOrigins("http://localhost:5173")
+         .AllowAnyHeader()
+         .AllowAnyMethod()
+         .AllowCredentials()
+    );
+});
+
 builder.Services.AddControllers();
 builder.Services.AddMemoryCache(o => o.SizeLimit = 10000);
 // Add services to the container.
@@ -44,6 +54,8 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 var app = builder.Build();
+
+app.UseCors("DevCors");
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
