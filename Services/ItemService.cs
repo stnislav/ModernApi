@@ -58,7 +58,7 @@ public class ItemService : IItemService
                     .Select(x => new ItemResponse(x.Id, x.Name))
                     .ToListAsync(ct);
                     
-        var result = new PagedResult<ItemResponse>(items, total, page, pageSize);
+        var result = new PagedResult<ItemResponse>(items, page, pageSize, total);
 
         await _cache.SetAsync(cacheKey, result, TimeSpan.FromSeconds(120), ct);
         return result;
